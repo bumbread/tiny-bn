@@ -17,7 +17,12 @@ if __name__ == "__main__":
 
   if os.path.exists(err_log):
     tests = open(err_log).readlines()
-    tetst = [t for t in tests if t]
+    tests = [t for t in tests if t!='\n']
+    for i in range(len(tests)):
+      t=tests[i].split(' ')
+      t[0] = os.path.sep.join(t[0].replace('\\', '/').split('/'));
+      t=' '.join(t);
+      tests[i]=t
     ntests = len(tests)
     for t in tests:
       err_code = os.system(t)

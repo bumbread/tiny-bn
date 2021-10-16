@@ -19,7 +19,7 @@ import os
 import math
 
 
-TEST_BINARY = "./build/test_random"
+TEST_BINARY = os.path.join(".", "build", "test_random")
 
 
 def run_shell(runthis):
@@ -101,7 +101,7 @@ while i < NTESTS:
     # avoid dividing by 0
     if oper2 == 0:
       oper2 += 1
-    expected = oper1 / oper2
+    expected = oper1 // oper2
   elif operation == AND:
     expected = oper1 & oper2
   elif operation == OR:
@@ -120,7 +120,7 @@ while i < NTESTS:
   elif operation == RSHIFT:
     expected = oper1 >> oper2
   elif operation == ISQRT:
-		expected = int(math.sqrt(oper1));
+    expected = int(math.sqrt(oper1));
 
 
   # Convert to string to pass to C program
@@ -156,7 +156,7 @@ while i < NTESTS:
     sys.stdout.write("x")
     try:
       f = open("error_log.txt", "a+")
-      f.write(cmd_string + os.linesep)
+      f.write(cmd_string + '\n')
       f.close()
     except:
       import traceback

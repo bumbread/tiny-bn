@@ -32,6 +32,7 @@ int main(int argc, char** argv)
   bignum_init(&b);
   bignum_init(&c);
   bignum_init(&res);
+
   bignum_from_string(&a, argv[2], strlen(argv[2]));
   bignum_from_string(&b, argv[3], strlen(argv[3]));
   bignum_from_string(&c, argv[4], strlen(argv[4]));
