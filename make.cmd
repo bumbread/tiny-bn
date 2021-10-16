@@ -1,7 +1,8 @@
 @echo off
 
+set CC=gcc -I. -Wundef -Wall -Wextra -O3
+
 if "%1"=="test" (
-  set CC=gcc -I. -Wundef -Wall -Wextra -O3
   %CC% bn.c .\tests\golden.c      -o .\build\test_golden
   %CC% bn.c .\tests\hand_picked.c -o .\build\test_hand_picked
   %CC% bn.c .\tests\load_cmp.c    -o .\build\test_load_cmp
@@ -28,5 +29,5 @@ if "%1"=="test" (
   echo ======================================================================
   echo.
 ) else (
-
+  %CC% -c bn.c -o build\bignum.obj
 )

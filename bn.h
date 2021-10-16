@@ -1,5 +1,5 @@
-#ifndef __BIGNUM_H__
-#define __BIGNUM_H__
+#ifndef BIGNUM__H
+#define BIGNUM__H
 /*
 
 Big number library - arithmetic on multiple-precision unsigned integers.

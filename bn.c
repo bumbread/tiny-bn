@@ -26,10 +26,10 @@ There may well be room for performance-optimizations and improvements.
 
 
 /* Functions for shifting number in-place. */
-static void _lshift_one_bit(struct bn* a);
-static void _rshift_one_bit(struct bn* a);
-static void _lshift_word(struct bn* a, int nwords);
-static void _rshift_word(struct bn* a, int nwords);
+static void bn__lshift_one_bit(struct bn* a);
+static void bn__rshift_one_bit(struct bn* a);
+static void bn__lshift_word(struct bn* a, int nwords);
+static void bn__rshift_word(struct bn* a, int nwords);
 
 
 
@@ -265,7 +265,7 @@ void bignum_mul(struct bn* a, struct bn* b, struct bn* c)
         bignum_init(&tmp);
         DTYPE_TMP intermediate = ((DTYPE_TMP)a->array[i] * (DTYPE_TMP)b->array[j]);
         bignum_from_int(&tmp, intermediate);
-        _lshift_word(&tmp, i + j);
+        bn__lshift_word(&tmp, i + j);
         bignum_add(&tmp, &row, &row);
       }
     }
@@ -297,13 +297,13 @@ void bignum_div(struct bn* a, struct bn* b, struct bn* c)
       overflow = true;
       break;
     }
-    _lshift_one_bit(&current);                //   current <<= 1;
-    _lshift_one_bit(&denom);                  //   denom <<= 1;
+    bn__lshift_one_bit(&current);                //   current <<= 1;
+    bn__lshift_one_bit(&denom);                  //   denom <<= 1;
   }
   if (!overflow)
   {
-    _rshift_one_bit(&denom);                  // denom >>= 1;
-    _rshift_one_bit(&current);                // current >>= 1;
+    bn__rshift_one_bit(&denom);                  // denom >>= 1;
+    bn__rshift_one_bit(&current);                // current >>= 1;
   }
   bignum_init(c);                             // int answer = 0;
 
@@ -314,8 +314,8 @@ void bignum_div(struct bn* a, struct bn* b, struct bn* c)
       bignum_sub(&tmp, &denom, &tmp);         //     dividend -= denom;
       bignum_or(c, &current, c);              //     answer |= current;
     }
-    _rshift_one_bit(&current);                //   current >>= 1;
-    _rshift_one_bit(&denom);                  //   denom >>= 1;
+    bn__rshift_one_bit(&current);                //   current >>= 1;
+    bn__rshift_one_bit(&denom);                  //   denom >>= 1;
   }                                           // return answer;
 }
 
@@ -332,7 +332,7 @@ void bignum_lshift(struct bn* a, struct bn* b, int nbits)
   int nwords = nbits / nbits_pr_word;
   if (nwords != 0)
   {
-    _lshift_word(b, nwords);
+    bn__lshift_word(b, nwords);
     nbits -= (nwords * nbits_pr_word);
   }
 
@@ -360,7 +360,7 @@ void bignum_rshift(struct bn* a, struct bn* b, int nbits)
   int nwords = nbits / nbits_pr_word;
   if (nwords != 0)
   {
-    _rshift_word(b, nwords);
+    bn__rshift_word(b, nwords);
     nbits -= (nwords * nbits_pr_word);
   }
 
@@ -569,7 +569,7 @@ void bignum_isqrt(struct bn *a, struct bn* b)
       bignum_assign(&low, &mid);
     }
     bignum_sub(&high,&low,&mid);
-    _rshift_one_bit(&mid);
+    bn__rshift_one_bit(&mid);
     bignum_add(&low,&mid,&mid);
     bignum_inc(&mid);
   }
@@ -591,7 +591,7 @@ void bignum_assign(struct bn* dst, struct bn* src)
 
 
 /* Private / Static functions. */
-static void _rshift_word(struct bn* a, int nwords)
+static void bn__rshift_word(struct bn* a, int nwords)
 {
   /* Naive method: */
   require(a, "a is null");
@@ -618,7 +618,7 @@ static void _rshift_word(struct bn* a, int nwords)
 }
 
 
-static void _lshift_word(struct bn* a, int nwords)
+static void bn__lshift_word(struct bn* a, int nwords)
 {
   require(a, "a is null");
   require(nwords >= 0, "no negative shifts");
@@ -637,7 +637,7 @@ static void _lshift_word(struct bn* a, int nwords)
 }
 
 
-static void _lshift_one_bit(struct bn* a)
+static void bn__lshift_one_bit(struct bn* a)
 {
   require(a, "a is null");
 
@@ -650,7 +650,7 @@ static void _lshift_one_bit(struct bn* a)
 }
 
 
-static void _rshift_one_bit(struct bn* a)
+static void bn__rshift_one_bit(struct bn* a)
 {
   require(a, "a is null");
 
