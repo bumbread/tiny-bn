@@ -63,7 +63,7 @@ There may well be room for performance-optimizations and improvements.
 #endif
 
 
-/* Data-holding structure: array of DTYPEs */
+/* Data-holding structure: array of bn_words */
 struct bn
 {
   bn_word array[BN_ARRAY_SIZE];
