@@ -1,2 +1,3 @@
 build/**
+tests/**
 error_log.txt

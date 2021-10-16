@@ -9,6 +9,7 @@ This library is a fork of kokke's [tiny-bignum-c](https://github.com/kokke/tiny-
 - Removes UB
 - Adds prefixes to the library's functions, defines et cetera
 - Adds windows build scripts
+- Removes the ability to chose between different digit sizes.
 
 ## Description
 
@@ -17,9 +18,6 @@ Tiny Bignum is a small portable [Arbitrary-precision](https://en.wikipedia.org/w
   actual precision of the big integer type used in the library is unlimited in
   practice, but in fact it is limited to 128 bytes. That limit could be changed
   by defining a macro.
-
-The library offers the choice of `uint32_t`, `uint16_t` or `uint8_t` as its
-  underlying "digit" representation. By default the library uses `uint32_t`s.
 
 The library offers no overflow handling for when the integer grows over the
   size of the underlying representation. Thus all operations truncate.
@@ -36,7 +34,7 @@ No dynamic memory management is utilized, `stdio.h` is used for testing
 
 Goals/Functions provided by the library:
 
-- Overflow signaling
+- Overflow signaling (not implemented)
 - Basic arithmetic, Bitwise operators, GCD, LCM
 
 ## Current status
@@ -60,21 +58,6 @@ In **exactly one** file that includes the header, define `bn_implementation`:
 #define bn_implementation
 #include <bn.h>
 ```
-
-### Changing the digit size
-
-You can change the "digit" of the underlying representation to be either
-1 byte, 2 bytes or 4 bytes. To change the size of the digit, use one of the
-following lines
-
-```c
-#define bn_word_size 1
-#define bn_word_size 2
-#define bn_word_size 4
-```
-
-In EVERY file that includes `bn.h`. Alternatively add `-Dbn_word_size=n`
-compiler option for every compiled file.
 
 ### Changing the precision
 
