@@ -10,7 +10,6 @@ Licence: public domain.
 
 *****************************************************************************/
 
-#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -31,23 +30,17 @@ Licence: public domain.
   typedef uint8_t  bn_word;
   typedef uint16_t bn_dword;
   #define bn_word_msb                 ((bn_dword)(0x80))
-  #define BN_PRIword                  "%.02x"
-  #define BN_SCAword                  "%2hhx"
-  #define BN_MAX_VAL                  ((bn_dword)0xFF)
+  #define bn_max_val                  ((bn_dword)0xFF)
 #elif (bn_word_size == 2)
   typedef uint16_t bn_word;
   typedef uint32_t bn_dword;
   #define bn_word_msb                 ((bn_dword)(0x8000))
-  #define BN_PRIword                  "%.04x"
-  #define BN_SCAword                  "%4hx"
-  #define BN_MAX_VAL                  ((bn_dword)0xFFFF)
+  #define bn_max_val                  ((bn_dword)0xFFFF)
 #elif (bn_word_size == 4)
   typedef uint32_t bn_word;
   typedef uint64_t bn_dword;
   #define bn_word_msb                 ((bn_dword)(0x80000000))
-  #define BN_PRIword                  "%.08x"
-  #define BN_SCAword                  "%8x"
-  #define BN_MAX_VAL                  ((bn_dword)0xFFFFFFFF)
+  #define bn_max_val                  ((bn_dword)0xFFFFFFFF)
 #else 
   #error bn_word_size must be either to 1, 2 or 4
 #endif
@@ -148,6 +141,11 @@ int bignum_to_int(struct bn* n)
   return ret;
 }
 
+static inline int hexchar__to_int(char a)
+{
+  if('a' <= a && a <= 'f') return a-'a'+10;
+  else return a-'0';
+}
 
 void bignum_from_string(struct bn* n, char* str, int nbytes)
 {
@@ -171,13 +169,31 @@ void bignum_from_string(struct bn* n, char* str, int nbytes)
   while (i >= 0)
   {
     tmp = 0;
-    sscanf(&str[i], BN_SCAword, &tmp);
+    for(int q=0; q!=2*bn_word_size;++q) {
+      int digit = hexchar__to_int(str[i+q]);
+      tmp = 16*tmp + digit;
+    }
     n->array[j] = tmp;
     i -= (2 * bn_word_size); /* step bn_word_size hex-byte(s) back in the string. */
     j += 1;               /* step one element forward in the array. */
   }
 }
 
+static inline char bn__hexlo(uint8_t b)
+{
+  char q=(char)(b&0x0F);
+  if(q>=10) q+='a';
+  else q+='0';
+  return q;
+}
+
+static inline char bn__hexhi(uint8_t b)
+{
+  char q=(char)(b>>4);
+  if(q>=10)q+='a';
+  else q+='0';
+  return q;
+}
 
 void bignum_to_string(struct bn* n, char* str, int nbytes)
 {
@@ -192,7 +208,22 @@ void bignum_to_string(struct bn* n, char* str, int nbytes)
   /* reading last array-element "MSB" first -> big endian */
   while ((j >= 0) && (nbytes > (i + 1)))
   {
-    sprintf(&str[i], BN_PRIword, n->array[j]);
+    #if bn_word_size == 1
+      str[i+0] = bn__hexhi(n->array[j]);
+      str[i+1] = bn__hexlo(n->array[j]);
+    #elif bn_word_size == 2
+      str[i+0] = bn__hexhi(n->array[j]>>8);
+      str[i+1] = bn__hexlo(n->array[j]>>8);
+      str[i+2] = bn__hexhi(n->array[j]);
+      str[i+3] = bn__hexlo(n->array[j]);
+    #elif bn_word_size == 4
+      str[i+0] = bn__hexhi(n->array[j]>>16);
+      str[i+1] = bn__hexlo(n->array[j]>>16);
+      str[i+2] = bn__hexhi(n->array[j]>>8);
+      str[i+3] = bn__hexlo(n->array[j]>>8);
+      str[i+4] = bn__hexhi(n->array[j]);
+      str[i+5] = bn__hexlo(n->array[j]);
+    #endif
     i += (2 * bn_word_size); /* step bn_word_size hex-byte(s) forward in the string. */
     j -= 1;               /* step one element back in the array. */
   }
@@ -271,8 +302,8 @@ void bignum_add(struct bn* a, struct bn* b, struct bn* c)
   for (i = 0; i < bn_array_size; ++i)
   {
     tmp = (bn_dword)a->array[i] + b->array[i] + carry;
-    carry = (tmp > BN_MAX_VAL);
-    c->array[i] = (tmp & BN_MAX_VAL);
+    carry = (tmp > bn_max_val);
+    c->array[i] = (tmp & bn_max_val);
   }
 }
 
@@ -290,11 +321,11 @@ void bignum_sub(struct bn* a, struct bn* b, struct bn* c)
   int i;
   for (i = 0; i < bn_array_size; ++i)
   {
-    tmp1 = (bn_dword)a->array[i] + (BN_MAX_VAL + 1); /* + number_base */
+    tmp1 = (bn_dword)a->array[i] + (bn_max_val + 1); /* + number_base */
     tmp2 = (bn_dword)b->array[i] + borrow;;
     res = (tmp1 - tmp2);
-    c->array[i] = (bn_word)(res & BN_MAX_VAL); /* "modulo number_base" == "% (number_base - 1)" if number_base is 2^N */
-    borrow = (res <= BN_MAX_VAL);
+    c->array[i] = (bn_word)(res & bn_max_val); /* "modulo number_base" == "% (number_base - 1)" if number_base is 2^N */
+    borrow = (res <= bn_max_val);
   }
 }
 
@@ -345,7 +376,7 @@ void bignum_div(struct bn* a, struct bn* b, struct bn* c)
   bignum_assign(&denom, b);                   // denom = b
   bignum_assign(&tmp, a);                     // tmp   = a
 
-  const bn_dword half_max = 1 + (bn_dword)(BN_MAX_VAL / 2);
+  const bn_dword half_max = 1 + (bn_dword)(bn_max_val / 2);
   bool overflow = false;
   while (bignum_cmp(&denom, a) != 1)     // while (denom <= a) {
   {
