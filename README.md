@@ -73,7 +73,7 @@ for every compiled file.
 
 To make sure the library doesn't use the CRT you have to:
 
-- `#define bn_assert(expr, msg)` to be either your implementation of assert or
+- `#define bn_assert(expr)` to be either your implementation of assert or
   an empty macro.
 
 ## License
