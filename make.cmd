@@ -1,13 +1,13 @@
 @echo off
 
-set CC=gcc -I. -Wundef -Wall -Wextra -O3
+set CC=gcc -Dbn_implementation -I. -Wundef -Wall -Wextra -O3
 
 if "%1"=="test" (
-  %CC% bn.c .\tests\golden.c      -o .\build\test_golden
-  %CC% bn.c .\tests\hand_picked.c -o .\build\test_hand_picked
-  %CC% bn.c .\tests\load_cmp.c    -o .\build\test_load_cmp
-  %CC% bn.c .\tests\factorial.c   -o .\build\test_factorial
-  %CC% bn.c .\tests\randomized.c  -o .\build\test_random
+  %CC% bn.h .\tests\golden.c      -o .\build\test_golden
+  %CC% bn.h .\tests\hand_picked.c -o .\build\test_hand_picked
+  %CC% bn.h .\tests\load_cmp.c    -o .\build\test_load_cmp
+  %CC% bn.h .\tests\factorial.c   -o .\build\test_factorial
+  %CC% bn.h .\tests\randomized.c  -o .\build\test_random
   REM %CC% bn.c .\tests\rsa.c         -o .\build\test_rsa
 
   echo.
@@ -29,5 +29,5 @@ if "%1"=="test" (
   echo ======================================================================
   echo.
 ) else (
-  %CC% -c bn.c -o build\bignum.obj
+  %CC% -Dbn_implementation -c bn.h -o build\bignum.obj
 )

@@ -21,8 +21,8 @@ No dynamic memory management is utilized, `stdio.h` is used for testing
 
 ## Design goals
 
-- C89/C99/C++ compatibility
-- Able to be included in many different projects
+- C99 ~ C++ compatibility
+- Being trivially included, distributed and used
 - Self-contained. The library has no external and CRT dependencies.
 - Code clarity. The code is sprinkled with holy comments.
 
@@ -35,54 +35,22 @@ Goals/Functions provided by the library:
 
 - GCD, LCM are not implemented
 - Overflow handling is not implemented
-- The library has poor support for C++ and C89.
+- The library has poor support for C++.
 
 ## Usage
 
-This is the datatype used for the operations.
+To use the library download `bn.h`, and include it into every file that
+requires the functionality of the library.
 
-```C
-struct bn
-{
-  bn_word array[BN_ARRAY_SIZE];
-};
+```c
+#include <bn.h>
 ```
 
-The API of the library:
+In **exactly one** file that includes the header, define `bn_implementation`:
 
-```C
-/* Initialization functions: */
-void bignum_init(struct bn* n); /* n gets zero-initialized */
-void bignum_from_int(struct bn* n, DTYPE_TMP i);
-int  bignum_to_int(struct bn* n);
-
-/* NOTE: these functions use HEX representation of str! */
-void bignum_from_string(struct bn* n, char* str, int nbytes);
-void bignum_to_string(struct bn* n, char* str, int maxsize);
-
-/* Basic arithmetic operations: */
-void bignum_add(struct bn* a, struct bn* b, struct bn* c);
-void bignum_sub(struct bn* a, struct bn* b, struct bn* c);
-void bignum_mul(struct bn* a, struct bn* b, struct bn* c);
-void bignum_div(struct bn* a, struct bn* b, struct bn* c);
-void bignum_mod(struct bn* a, struct bn* b, struct bn* c);
-void bignum_divmod(struct bn* a, struct bn* b, struct bn* c, struct bn* d);
-
-/* Bitwise operations: */
-void bignum_and(struct bn* a, struct bn* b, struct bn* c);
-void bignum_or(struct bn* a, struct bn* b, struct bn* c);
-void bignum_xor(struct bn* a, struct bn* b, struct bn* c);
-void bignum_lshift(struct bn* a, struct bn* b, int nbits);
-void bignum_rshift(struct bn* a, struct bn* b, int nbits);
-
-/* Special operators and comparison */
-int  bignum_cmp(struct bn* a, struct bn* b);
-int  bignum_is_zero(struct bn* n);
-void bignum_inc(struct bn* n);
-void bignum_dec(struct bn* n);
-void bignum_pow(struct bn* a, struct bn* b, struct bn* c); /* exponentiation */
-void bignum_isqrt(struct bn* a, struct bn* b);      /* square root */
-void bignum_assign(struct bn* dst, struct bn* src); /* copies the data */
+```c
+#define bn_implementation
+#include <bn.h>
 ```
 
 ### Changing the digit size
@@ -92,23 +60,30 @@ You can change the "digit" of the underlying representation to be either
 following lines
 
 ```c
-#define BN_WORD_SIZE 1
-#define BN_WORD_SIZE 2
-#define BN_WORD_SIZE 3
+#define bn_word_size 1
+#define bn_word_size 2
+#define bn_word_size 4
 ```
 
-In EVERY file that includes `bn.h`. Alternatively add `-DBN_WORD_SIZE=n`
+In EVERY file that includes `bn.h`. Alternatively add `-Dbn_word_size=n`
 compiler option for every compiled file.
 
 ### Changing the precision
 
 You can change the max number of digits in a single bigint (in terms of digits)
-by defining `BN_ARRAY_SIZE`. By default BN_ARRAY_SIZE is defined in such a way
+by defining `bn_array_size`. By default bn_array_size is defined in such a way
 as to make the precision of 1024 bits.
 
 If you change the precision, you have to have the same define in EVERY file
-that includes `bn.h`. Alternatively add `-DBN_WORD_SIZE=n` compiler option
+that includes `bn.h`. Alternatively add `-Dbn_word_size=n` compiler option
 for every compiled file.
+
+### No-CRT builds
+
+To make sure the library doesn't use the CRT you have to:
+
+- `#define bn_assert(expr, msg)` to be either your implementation of assert or
+  an empty macro.
 
 ## License
 
