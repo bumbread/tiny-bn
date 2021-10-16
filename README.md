@@ -2,6 +2,14 @@
 
 # tiny-bignum-c - A small multiple-precision integer implementation in C
 
+This library is a fork of kokke's [tiny-bignum-c](https://github.com/kokke/tiny-bignum-c) library. This fork introduces several changes into the original library:
+
+- It is a single-header library that can be used in C (>= C99) and C++.
+- No CRT dependency (except assert macro, that could be disabled)
+- Removes UB
+- Adds prefixes to the library's functions, defines et cetera
+- Adds windows build scripts
+
 ## Description
 
 Tiny Bignum is a small portable [Arbitrary-precision](https://en.wikipedia.org/wiki/Arbitrary-precision_arithmetic)
