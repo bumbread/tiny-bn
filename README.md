@@ -1,6 +1,8 @@
 
 # tiny-bignum-c - A small multiple-precision integer implementation in C
 
+**WARNING:** Don't use this library for your project. It is not tested and not guaranteed to work. Much of the code is WIP.
+
 This library is a fork of kokke's [tiny-bignum-c](https://github.com/kokke/tiny-bignum-c) library. This fork introduces several changes into the original library:
 
 - It is a single-header library that can be used in C (>= C99) and C++.
@@ -13,33 +15,31 @@ This library is a fork of kokke's [tiny-bignum-c](https://github.com/kokke/tiny-
 ## Description
 
 Tiny Bignum is a small portable [Arbitrary-precision](https://en.wikipedia.org/wiki/Arbitrary-precision_arithmetic)
-  unsigned integer arithmetic in C99, for calculating with large numbers. The
-  actual precision of the big integer type used in the library is unlimited in
-  practice, but in fact it is limited to 128 bytes. That limit could be changed
-  by defining a macro.
+  unsigned integer arithmetic library, written in C99, for calculating with
+  large numbers. The actual precision of the big integer type used in the
+  library is unlimited in practice, but in fact it is limited to 128 bytes.
+  That limit could be changed by defining a macro.
 
 The library offers no overflow handling for when the integer grows over the
   size of the underlying representation. Thus all operations truncate.
 
-No dynamic memory management is utilized, `stdio.h` is used for testing
-  functions parsing to and from hex-strings (`sprintf`, `sscanf`).
+No dynamic memory management is utilized, and the library has no CRT
+  dependencies, save for `<assert.h>`'s during debug builds. A custom
+  assert macro can be redefined if you wish to not depend on CRT.
 
 ## Design goals
 
 - C99 ~ C++ compatibility
 - Being trivially included, distributed and used
-- Self-contained. The library has no external and CRT dependencies.
-- Code clarity. The code is sprinkled with holy comments.
+- Self-contained. The library has no external and CRT dependencies
 
-Goals/Functions provided by the library:
+Functions provided by the library:
 
-- Overflow signaling (not implemented)
-- Basic arithmetic, Bitwise operators, GCD, LCM
+- Overflow signaling, as a boolean flag
 
 ## Current status
 
-- GCD, LCM are not implemented
-- Overflow handling is not implemented
+- GCD, LCM, bitwise arithmetic are not implemented
 - The library has poor support for C++.
 
 ## Usage
