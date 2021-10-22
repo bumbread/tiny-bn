@@ -201,7 +201,7 @@ void bignum_from_u64(Bignum* bn, uint64_t n)
   bn_assert(bn);
   bignum_init(bn);
 
-  bn->array[0] = n;
+  bn->array[0] = (uint32_t)n;
   bn->array[1] = n >> 32;
 }
 
@@ -259,7 +259,7 @@ uint64_t u64_from_bignum(Bignum const* n)
   return n->array[0] | (n->array[1] << 1);
 }
 
-static inline char bn__hexlo(uint8_t b)
+static inline char bn__hexlo(uint32_t b)
 {
   char q=(char)(b&0x0F);
   if(q>=10) q+='a';
@@ -267,7 +267,7 @@ static inline char bn__hexlo(uint8_t b)
   return q;
 }
 
-static inline char bn__hexhi(uint8_t b)
+static inline char bn__hexhi(uint32_t b)
 {
   char q=(char)(b>>4);
   if(q>=10)q+='a';
@@ -287,6 +287,8 @@ void hex_from_bignum(Bignum const* n, char* str, int maxsize)
 
   while ((j >= 0) && (maxsize > (i + 1)))
   {
+    str[i+0] = bn__hexhi(n->array[j]>>24);
+    str[i+1] = bn__hexlo(n->array[j]>>24);
     str[i+0] = bn__hexhi(n->array[j]>>16);
     str[i+1] = bn__hexlo(n->array[j]>>16);
     str[i+2] = bn__hexhi(n->array[j]>>8);
