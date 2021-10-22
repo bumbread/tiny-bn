@@ -23,6 +23,10 @@ Licence: public domain.
   #define bn_array_size 32
 #endif
 
+#if bn_array_size <= 0
+  #error "bn_array_size must be at least 1"
+#endif
+
 #define bn_word_msb (UINT64_C(0x80000000))
 #define bn_max_val  (UINT64_C(0xFFFFFFFF))
 
@@ -37,33 +41,22 @@ int  bignum_to_int(struct bn* n);
 void bignum_from_string(struct bn* n, char* str, int nbytes);
 void bignum_to_string(struct bn* n, char* str, int maxsize);
 
+void bignum_incr(struct bn* n);
+void bignum_decr(struct bn* n);
 void bignum_add(struct bn* a, struct bn* b, struct bn* c);
 void bignum_sub(struct bn* a, struct bn* b, struct bn* c);
 void bignum_mul(struct bn* a, struct bn* b, struct bn* c);
 void bignum_div(struct bn* a, struct bn* b, struct bn* c);
 void bignum_mod(struct bn* a, struct bn* b, struct bn* c);
-void bignum_divmod(struct bn* a, struct bn* b, struct bn* c, struct bn* d);
-
-void bignum_and(struct bn* a, struct bn* b, struct bn* c);
-void bignum_or(struct bn* a, struct bn* b, struct bn* c);
-void bignum_xor(struct bn* a, struct bn* b, struct bn* c);
-void bignum_lshift(struct bn* a, struct bn* b, int nbits);
-void bignum_rshift(struct bn* a, struct bn* b, int nbits);
+void bignum_divmod(struct bn* q, struct bn *r, struct bn* lhs, struct bn* rhs);
 
 int  bignum_cmp(struct bn* a, struct bn* b);
 int  bignum_is_zero(struct bn* n);
-void bignum_incr(struct bn* n);
-void bignum_decr(struct bn* n);
-void bignum_pow(struct bn* a, struct bn* b, struct bn* c);
-void bignum_isqrt(struct bn* a, struct bn* b);
 void bignum_assign(struct bn* dst, struct bn* src);
 
 #ifdef bn_implementation
 
-static void bn__lshift_one_bit(struct bn* a);
-static void bn__rshift_one_bit(struct bn* a);
-static void bn__lshift_word(struct bn* a, int nwords);
-static void bn__rshift_word(struct bn* a, int nwords);
+static bool bn_overflow_flag = 0;
 
 void bignum_init(struct bn* n)
 {
@@ -181,288 +174,223 @@ void bignum_to_string(struct bn* n, char* str, int nbytes)
 }
 
 
-void bignum_dec(struct bn* n)
+void bignum_decr(struct bn* n)
 {
   bn_assert(n);
 
-  uint32_t tmp;
-  uint32_t res;
-
-  int i;
-  for (i = 0; i < bn_array_size; ++i)
+  bool carry = 1;
+  for(int i = 0; i != bn_array_size; ++i)
   {
-    tmp = n->array[i];
-    res = tmp - 1;
-    n->array[i] = res;
+    n->array[i] -= 1;
 
-    if (!(res > tmp))
-    {
+    // Note(bumbread): If decrement overflowed, the new
+    // value would be 0xFFFFFFFF
+    if(n->array[i] != 0xFFFFFFFF) {
+      carry = 0;
       break;
     }
   }
+  
+  bn_overflow_flag = (carry==1);
 }
 
 
-void bignum_inc(struct bn* n)
+void bignum_incr(struct bn* n)
 {
   bn_assert(n);
 
-  uint32_t res;
-  uint64_t tmp;
-
-  int i;
-  for (i = 0; i < bn_array_size; ++i)
+  bool carry = 1;
+  for(int i = 0; i != bn_array_size; ++i)
   {
-    tmp = n->array[i];
-    res = tmp + 1;
-    n->array[i] = res;
+    n->array[i] += 1;
 
-    if (res > tmp)
-    {
+    // Note(bumbread): If increment overflowed, the new
+    // value would be 0x00000000
+    if(n->array[i] != 0) {
+      carry = 0;
       break;
     }
   }
+  
+  bn_overflow_flag = (carry==1);
 }
 
 
-void bignum_add(struct bn* a, struct bn* b, struct bn* c)
+void bignum_add(struct bn* res, struct bn* lhs, struct bn* rhs)
 {
-  bn_assert(a);
-  bn_assert(b);
-  bn_assert(c);
+  bn_assert(res);
+  bn_assert(lhs);
+  bn_assert(rhs);
 
   uint64_t tmp;
-  int carry = 0;
+  uint64_t carry = 0;
   int i;
   for (i = 0; i < bn_array_size; ++i)
   {
-    tmp = (uint64_t)a->array[i] + b->array[i] + carry;
-    carry = (tmp > bn_max_val);
-    c->array[i] = (tmp & bn_max_val);
+    tmp = (uint64_t)lhs->array[i] + (uint64_t)rhs->array[i] + carry;
+    res->array[i] = (uint32_t)(tmp & 0xFFFFFFFF);
+    carry = tmp >> 32;
   }
+
+  bn_overflow_flag = (carry!=0);
 }
 
 
-void bignum_sub(struct bn* a, struct bn* b, struct bn* c)
+void bignum_sub(struct bn* res, struct bn* lhs, struct bn* rhs)
 {
-  bn_assert(a);
-  bn_assert(b);
-  bn_assert(c);
+  bn_assert(res);
+  bn_assert(lhs);
+  bn_assert(rhs);
 
-  uint64_t res;
-  uint64_t tmp1;
-  uint64_t tmp2;
   int borrow = 0;
-  int i;
-  for (i = 0; i < bn_array_size; ++i)
-  {
-    tmp1 = (uint64_t)a->array[i] + (bn_max_val + 1);
-    tmp2 = (uint64_t)b->array[i] + borrow;;
-    res = (tmp1 - tmp2);
-    c->array[i] = (uint32_t)(res & bn_max_val);
-    borrow = (res <= bn_max_val);
+  for (int i = 0; i < bn_array_size; ++i) {
+    int old_borrow=borrow;
+    borrow = (rhs->array[i] > lhs->array[i]) ? 1 : 0;
+    res->array[i] = lhs->array[i] - rhs->array[i] - old_borrow;
   }
+
+  bn_overflow_flag = (borrow!=0);
 }
 
 
-void bignum_mul(struct bn* a, struct bn* b, struct bn* c)
+void bignum_mul(struct bn* res, struct bn* lhs, struct bn* rhs)
 {
-  bn_assert(a);
-  bn_assert(b);
-  bn_assert(c);
+  bn_assert(res);
+  bn_assert(lhs);
+  bn_assert(rhs);
 
-  struct bn row;
-  struct bn tmp;
-  int i, j;
+  struct bn sum;
+  bignum_init(&sum);
 
-  bignum_init(c);
+  uint64_t carry =0;
 
-  for (i = 0; i < bn_array_size; ++i)
+  for(int i = 0; i < bn_array_size; ++i)
   {
+    struct bn row;
     bignum_init(&row);
 
-    for (j = 0; j < bn_array_size; ++j)
+    carry = 0;
+    for (int j = 0; j < bn_array_size - i; ++j)
     {
-      if (i + j < bn_array_size)
-      {
-        bignum_init(&tmp);
-        uint64_t intermediate = ((uint64_t)a->array[i] * (uint64_t)b->array[j]);
-        bignum_from_int(&tmp, intermediate);
-        bn__lshift_word(&tmp, i + j);
-        bignum_add(&tmp, &row, &row);
-      }
+      uint64_t ld = (uint64_t)lhs->array[j];
+      uint64_t rd = (uint64_t)rhs->array[i];
+      uint64_t tmp = carry + ld + rd;
+      row.array[i+j] += (uint32_t)(tmp & 0xFFFFFFFF);
+      carry = tmp >> 32;
     }
-    bignum_add(c, &row, c);
+
+    bignum_add(&sum, &sum, &row);
+    bn_overflow_flag |= (carry != 0);
   }
+
+  bignum_assign(res, &sum);
 }
 
-
-void bignum_div(struct bn* a, struct bn* b, struct bn* c)
+static uint64_t
+bignum__get_ndigits(struct bn *b)
 {
-  bn_assert(a);
-  bn_assert(b);
-  bn_assert(c);
-
-  struct bn current;
-  struct bn denom;
-  struct bn tmp;
-
-  bignum_from_int(&current, 1);
-  bignum_assign(&denom, b);
-  bignum_assign(&tmp, a);
-
-  const uint64_t half_max = 1 + (uint64_t)(bn_max_val / 2);
-  bool overflow = false;
-  while (bignum_cmp(&denom, a) != 1)
-  {
-    if (denom.array[bn_array_size - 1] >= half_max)
-    {
-      overflow = true;
+  uint64_t ndigits = bn_array_size;
+  do {
+    if(b->array[ndigits-1] != 0) {
       break;
     }
-    bn__lshift_one_bit(&current);
-    bn__lshift_one_bit(&denom);
-  }
-  if (!overflow)
-  {
-    bn__rshift_one_bit(&denom);
-    bn__rshift_one_bit(&current);
-  }
-  bignum_init(c);
+    ndigits --;
+  } while(ndigits != 1);
+  return ndigits;
+}
 
-  while (!bignum_is_zero(&current))
-  {
-    if (bignum_cmp(&tmp, &denom) != -1)
-    {
-      bignum_sub(&tmp, &denom, &tmp);
-      bignum_or(c, &current, c);
+static uint32_t
+bignum_divmod__getdigit(struct bn *r, struct bn *lhs, struct bn *rhs)
+{
+  bn_assert(r);
+  bn_assert(lhs);
+  bn_assert(rhs);
+
+  uint64_t ldigits = bignum__get_ndigits(lhs);
+  uint64_t rdigits = bignum__get_ndigits(rhs);
+
+  if(ldigits == 1 && rdigits == 1) {
+    uint32_t left = lhs->array[0];
+    uint32_t right = rhs->array[0];
+
+    uint32_t q0 = left / right;
+    uint32_t r0 = left % right;
+
+    bignum_from_int(r, r0);
+    return q0;
+  }
+  else {
+    struct bn divident;
+    bignum_assign(&divident, lhs);
+
+    uint32_t quotient = 0;
+    while(bignum_cmp(&divident, rhs) > 0) {
+      bignum_sub(&divident, &divident, rhs);
+      quotient += 1;
     }
-    bn__rshift_one_bit(&current);
-    bn__rshift_one_bit(&denom);
+
+    bignum_assign(&divident, r);
+    return quotient;
   }
 }
 
-
-void bignum_lshift(struct bn* a, struct bn* b, int nbits)
+static void
+bignum__append_digit(struct bn *res, struct bn *num, uint32_t digit)
 {
-  bn_assert(a);
-  bn_assert(b);
-  bn_assert(nbits >= 0);
-
-  bignum_assign(b, a);
-
-  const int nbits_pr_word = (sizeof(uint32_t) * 8);
-  int nwords = nbits / nbits_pr_word;
-  if (nwords != 0)
-  {
-    bn__lshift_word(b, nwords);
-    nbits -= (nwords * nbits_pr_word);
-  }
-
-  if (nbits != 0)
-  {
-    int i;
-    for (i = (bn_array_size - 1); i > 0; --i)
-    {
-      b->array[i] = (b->array[i] << nbits) | (b->array[i - 1] >> ((8 * sizeof(uint32_t)) - nbits));
-    }
-    b->array[i] <<= nbits;
-  }
+  uint64_t i = bn_array_size;
+  if(i != 1) do {
+    i --;
+    res->array[i] = num->array[i-1];
+  } while(i != 1);
+  res->array[0] = digit;
 }
 
-
-void bignum_rshift(struct bn* a, struct bn* b, int nbits)
+void
+bignum_divmod(struct bn* quot, struct bn *rem, struct bn* lhs, struct bn* rhs)
 {
-  bn_assert(a);
-  bn_assert(b);
-  bn_assert(nbits >= 0);
+  bn_assert(lhs);
+  bn_assert(rhs);
+  bn_assert(quot);
+  bn_assert(rem);
+
+  if(bignum_is_zero(rhs)) {
+    bn_assert(false);
+    return;
+  }
+
+  if(bignum_cmp(lhs, rhs) == -1) {
+    // Note(bumbread/2021-10-21): this may be wrong, when the pointers
+    // are aliased. Assignment to rem from lhs may overwrite rhs,
+    // leaving the rest of procedure wrong.
+    bignum_assign(rem, lhs);
+    bignum_assign(quot, rhs);
+    return;
+  }
+
+  struct bn divident;
+  struct bn quotient;
+  struct bn remainder;
+
+  bignum_from_int(&quotient, 0);
+  bignum_from_int(&remainder, 0);
+  uint64_t ldigits = bignum__get_ndigits(lhs);
+  uint64_t rdigits = bignum__get_ndigits(rhs);
   
-  bignum_assign(b, a);
-  
-  const int nbits_pr_word = (sizeof(uint32_t) * 8);
-  int nwords = nbits / nbits_pr_word;
-  if (nwords != 0)
   {
-    bn__rshift_word(b, nwords);
-    nbits -= (nwords * nbits_pr_word);
+    // Initialise remainder to be `rdigits-1` digits of the
+    // lhs number.
+    uint64_t i = rdigits - 1;
+    if(i != 0) do {
+      i --;
+      remainder.array[i] = lhs->array[i+1];
+    } while(i != 0);
   }
 
-  if (nbits != 0)
-  {
-    int i;
-    for (i = 0; i < (bn_array_size - 1); ++i)
-    {
-      b->array[i] = (b->array[i] >> nbits) | (b->array[i + 1] << ((8 * sizeof(uint32_t)) - nbits));
-    }
-    b->array[i] >>= nbits;
-  }
-  
-}
-
-
-void bignum_mod(struct bn* a, struct bn* b, struct bn* c)
-{
-  bn_assert(a);
-  bn_assert(b);
-  bn_assert(c);
-
-  struct bn tmp;
-
-  bignum_divmod(a,b,&tmp,c);
-}
-
-void bignum_divmod(struct bn* a, struct bn* b, struct bn* c, struct bn* d)
-{
-  bn_assert(a);
-  bn_assert(b);
-  bn_assert(c);
-
-  struct bn tmp;
-
-  bignum_div(a, b, c);
-  bignum_mul(c, b, &tmp);
-  bignum_sub(a, &tmp, d);
-}
-
-
-void bignum_and(struct bn* a, struct bn* b, struct bn* c)
-{
-  bn_assert(a);
-  bn_assert(b);
-  bn_assert(c);
-
-  int i;
-  for (i = 0; i < bn_array_size; ++i)
-  {
-    c->array[i] = (a->array[i] & b->array[i]);
-  }
-}
-
-
-void bignum_or(struct bn* a, struct bn* b, struct bn* c)
-{
-  bn_assert(a);
-  bn_assert(b);
-  bn_assert(c);
-
-  int i;
-  for (i = 0; i < bn_array_size; ++i)
-  {
-    c->array[i] = (a->array[i] | b->array[i]);
-  }
-}
-
-
-void bignum_xor(struct bn* a, struct bn* b, struct bn* c)
-{
-  bn_assert(a);
-  bn_assert(b);
-  bn_assert(c);
-
-  int i;
-  for (i = 0; i < bn_array_size; ++i)
-  {
-    c->array[i] = (a->array[i] ^ b->array[i]);
+  uint64_t di = ldigits-1;
+  for(uint64_t i = 0; i <= rdigits-ldigits; ++i) {
+    bignum__append_digit(&divident, &remainder, lhs->array[di--]);
+    uint32_t digit = bignum_divmod__getdigit(&remainder, &divident, rhs);
+    bignum__append_digit(&quotient, &quotient, digit);
   }
 }
 
@@ -507,71 +435,6 @@ int bignum_is_zero(struct bn* n)
   return 1;
 }
 
-
-void bignum_pow(struct bn* a, struct bn* b, struct bn* c)
-{
-  bn_assert(a);
-  bn_assert(b);
-  bn_assert(c);
-
-  struct bn tmp;
-
-  bignum_init(c);
-
-  if (bignum_cmp(b, c) == 0)
-  {
-    bignum_inc(c);
-  }
-  else
-  {
-    struct bn bcopy;
-    bignum_assign(&bcopy, b);
-    bignum_assign(&tmp, a);
-    bignum_dec(&bcopy);
-    while (!bignum_is_zero(&bcopy))
-    {
-      bignum_mul(&tmp, a, c);
-      bignum_dec(&bcopy);
-      bignum_assign(&tmp, c);
-    }
-
-    bignum_assign(c, &tmp);
-  }
-}
-
-void bignum_isqrt(struct bn *a, struct bn* b)
-{
-  bn_assert(a);
-  bn_assert(b);
-
-  struct bn low, high, mid, tmp;
-
-  bignum_init(&low);
-  bignum_assign(&high, a);
-  bignum_rshift(&high, &mid, 1);
-  bignum_inc(&mid);
-
-  while (bignum_cmp(&high, &low) > 0) 
-  {
-    bignum_mul(&mid, &mid, &tmp);
-    if (bignum_cmp(&tmp, a) > 0) 
-    {
-      bignum_assign(&high, &mid);
-      bignum_dec(&high);
-    }
-    else 
-    {
-      bignum_assign(&low, &mid);
-    }
-    bignum_sub(&high,&low,&mid);
-    bn__rshift_one_bit(&mid);
-    bignum_add(&low,&mid,&mid);
-    bignum_inc(&mid);
-  }
-  bignum_assign(b,&low);
-}
-
-
 void bignum_assign(struct bn* dst, struct bn* src)
 {
   bn_assert(dst);
@@ -584,63 +447,6 @@ void bignum_assign(struct bn* dst, struct bn* src)
   }
 }
 
-static void bn__rshift_word(struct bn* a, int nwords)
-{
-  int i;
-  if (nwords >= bn_array_size)
-  {
-    for (i = 0; i < bn_array_size; ++i)
-    {
-      a->array[i] = 0;
-    }
-    return;
-  }
-
-  for (i = 0; i < bn_array_size - nwords; ++i)
-  {
-    a->array[i] = a->array[i + nwords];
-  }
-  for (; i < bn_array_size; ++i)
-  {
-    a->array[i] = 0;
-  }
-}
-
-
-static void bn__lshift_word(struct bn* a, int nwords)
-{
-  int i;
-  for (i = (bn_array_size - 1); i >= nwords; --i)
-  {
-    a->array[i] = a->array[i - nwords];
-  }
-  for (; i >= 0; --i)
-  {
-    a->array[i] = 0;
-  }  
-}
-
-
-static void bn__lshift_one_bit(struct bn* a)
-{
-  int i;
-  for (i = (bn_array_size - 1); i > 0; --i)
-  {
-    a->array[i] = (a->array[i] << 1) | (a->array[i - 1] >> ((8 * sizeof(uint32_t)) - 1));
-  }
-  a->array[0] <<= 1;
-}
-
-
-static void bn__rshift_one_bit(struct bn* a)
-{
-  int i;
-  for (i = 0; i < (bn_array_size - 1); ++i)
-  {
-    a->array[i] = (a->array[i] >> 1) | (a->array[i + 1] << ((8 * sizeof(uint32_t)) - 1));
-  }
-  a->array[bn_array_size - 1] >>= 1;
-}
 #endif
 #endif
 
