@@ -328,31 +328,39 @@ int bignum_is_overflow(void)
 void bignum_incr(Bignum* n)
 {
   bn_assert(n);
+  int overflow = 0;
   for(int i = 0; i != bn_array_size; ++i)
   {
     n->array[i] += 1;
     // Note(bumbread): If increment overflowed, the new
     // value would be 0x00000000
     if(n->array[i] == 0) {
-      bn_overflow_flag |= 1;
+      overflow = 1;
+    }
+    else {
       break;
     }
   }
+  bn_overflow_flag |= overflow;
 }
 
 void bignum_decr(Bignum* n)
 {
   bn_assert(n);
+  int borrow = 0;
   for(int i = 0; i != bn_array_size; ++i)
   {
     n->array[i] -= 1;
     // Note(bumbread): If decrement overflowed, the new
     // value would be 0xFFFFFFFF
-    if(n->array[i] != 0xFFFFFFFF) {
-      bn_overflow_flag |= 1;
+    if(n->array[i] == 0xFFFFFFFF) {
+      borrow = 1;
+    }
+    else {
       break;
     }
-  }  
+  }
+  bn_overflow_flag |= borrow;
 }
 
 void bignum_add(Bignum* res, Bignum const* lhs, Bignum const* rhs)
