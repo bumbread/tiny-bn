@@ -62,8 +62,11 @@ struct Bignum
     a  Bignum variable with the value encoded in the string. The string has to
     be multiple of 8 characters.
 
-    No  more than `maxsize` bytes are guaranteed to be read. If length of the
+    No  more  than `maxsize` bytes are guaranteed to be read. If length of the
     string is less than maxsize, no more than that length is read.
+
+    If the value represented by the string is bigger than fits in bignum array
+    then the overflow flag is set.
 
   4. `bignum_assign`
     Takes  initalized  `src`  Bignum, and copies it's value to `dst` variable,
@@ -242,19 +245,23 @@ void bignum_from_hex(Bignum* n, char const* str, int maxsize)
     len++;
   }
 
-  int32_t i = 0;
-  int32_t words_remain = 1 + (maxsize-1)/8;
-  int32_t digits_remain = 1 + (maxsize-1)%8;
+  int i = maxsize-1;
 
-  while(words_remain > 0) {
+  int word_counter = 0;
+  while(word_counter < bn_array_size) {
     uint32_t word = 0;
-    while(digits_remain > 0) {
-      digits_remain --;
-      word = 16*word + hexchar__to_int(str[i++]);
+    int digit_counter = 0;
+    while(digit_counter != 32 && i != 0) {
+      word |= hexchar__to_int(str[i--]) << digit_counter;
+      digit_counter += 4;
     }
-    words_remain --;
-    digits_remain = 8;
-    n->array[words_remain] = word;
+    n->array[word_counter ++] = word;
+    if(i == 0) break;
+  }
+
+  while(i != 0) if(str[i--] != 0) {
+    bn_overflow_flag = 1;
+    break;
   }
 }
 
