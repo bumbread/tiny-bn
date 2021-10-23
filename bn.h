@@ -62,8 +62,8 @@ struct Bignum
     a  Bignum variable with the value encoded in the string. The string has to
     be multiple of 8 characters.
 
-    `maxsize`  has  to  represent the actual size of the string (or less), and
-    be a multiple of 8.
+    No  more than `maxsize` bytes are guaranteed to be read. If length of the
+    string is less than maxsize, no more than that length is read.
 
   4. `bignum_assign`
     Takes  initalized  `src`  Bignum, and copies it's value to `dst` variable,
@@ -87,9 +87,9 @@ bn_extern void bignum_assign(Bignum* dst, Bignum const* src);
 
   2. `hex_from_bignum`
     Takes  a  finite  string  of  hex  digits  and  converts  it  to a bignum.
-    `maxsize`  must  be no greater than the size of the `str`. The digits will
-    be   written  in  the  big-endian  format,  with  the  lowest-order  digit
-    necessarily being written in the (maxsize-1)-th's character of the string.
+    The digits will be written in the big-endian format, with the lowest-order
+    digit  necessarily  being  written  in the (maxsize-2)'nd character of the
+    string. `maxsize` must count the null-terminator.
 *****************************************************************************/
 bn_extern uint64_t u64_from_bignum(Bignum const* n);
 bn_extern void hex_from_bignum(Bignum const* n, char* str, int maxsize);
