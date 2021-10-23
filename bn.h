@@ -210,7 +210,10 @@ void bignum_from_u64(Bignum* bn, uint64_t n)
   bignum_init(bn);
 
   bn->array[0] = (uint32_t)n;
-  bn->array[1] = n >> 32;
+  bn->array[1] = (uint32_t)(n >> 32);
+  for(int i = 2; i < bn_array_size; ++i) {
+    bn->array[i] = 0;
+  }
 }
 
 static inline int hexchar__to_int(char a)
@@ -221,29 +224,37 @@ static inline int hexchar__to_int(char a)
 
 void bignum_from_hex(Bignum* n, char const* str, int maxsize)
 {
+  if(maxsize == 0) return;
+
   bn_assert(n);
   bn_assert(str);
   bn_assert(maxsize > 0);
-  bn_assert(maxsize%2 == 0);
-  
   bignum_init(n);
 
-  const int chars_per_u32 = 2*sizeof(uint32_t);
-
-  uint32_t tmp;
-  int i = maxsize - chars_per_u32;
-  int j = 0;
-  while (i >= 0)
-  {
-    tmp = 0;
-    for(int q=0; q!=chars_per_u32;++q) {
-      int digit = hexchar__to_int(str[i+q]);
-      tmp = 16*tmp + digit;
+  // Find the length of the string and if its bigger, truncate
+  // the string
+  int len = 0;
+  while(len != maxsize) {
+    if(str[len] == 0) {
+      maxsize = len;
+      break;
     }
+    len++;
+  }
 
-    n->array[j] = tmp;
-    i -= chars_per_u32;
-    j += 1;
+  int32_t i = 0;
+  int32_t words_remain = 1 + (maxsize-1)/8;
+  int32_t digits_remain = 1 + (maxsize-1)%8;
+
+  while(words_remain > 0) {
+    uint32_t word = 0;
+    while(digits_remain > 0) {
+      digits_remain --;
+      word = 16*word + hexchar__to_int(str[i++]);
+    }
+    words_remain --;
+    digits_remain = 8;
+    n->array[words_remain] = word;
   }
 }
 
