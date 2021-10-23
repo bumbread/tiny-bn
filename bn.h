@@ -29,6 +29,14 @@ Licence: public domain.
 #define bn_word_msb (UINT64_C(0x80000000))
 #define bn_max_val  (UINT64_C(0xFFFFFFFF))
 
+#if defined(bn_test)
+  #define bn_extern __declspec(dllexport) extern
+#elif defined(__cplusplus)
+  #define bn_extern extern "C"
+#else
+  #define bn_extern extern
+#endif
+
 typedef struct Bignum Bignum;
 struct Bignum
 {
@@ -62,10 +70,10 @@ struct Bignum
     initializing it.
 
 *****************************************************************************/
-void bignum_init(Bignum* n);
-void bignum_from_u64(Bignum* n, uint64_t i);
-void bignum_from_hex(Bignum* n, char const* str, int maxsize);
-void bignum_assign(Bignum* dst, Bignum const* src);
+bn_extern void bignum_init(Bignum* n);
+bn_extern void bignum_from_u64(Bignum* n, uint64_t i);
+bn_extern void bignum_from_hex(Bignum* n, char const* str, int maxsize);
+bn_extern void bignum_assign(Bignum* dst, Bignum const* src);
 
 
 /*****************************************************************************
@@ -83,8 +91,8 @@ void bignum_assign(Bignum* dst, Bignum const* src);
     be   written  in  the  big-endian  format,  with  the  lowest-order  digit
     necessarily being written in the (maxsize-1)-th's character of the string.
 *****************************************************************************/
-uint64_t u64_from_bignum(Bignum const* n);
-void hex_from_bignum(Bignum const* n, char* str, int maxsize);
+bn_extern uint64_t u64_from_bignum(Bignum const* n);
+bn_extern void hex_from_bignum(Bignum const* n, char* str, int maxsize);
 
 
 /*****************************************************************************
@@ -98,8 +106,8 @@ void hex_from_bignum(Bignum const* n, char* str, int maxsize);
     Returns the value of the overflow flag. Zero, if the overflow wasn't
       occured, and non-zero value if it has.
 *****************************************************************************/
-void bignum_reset_overflow_flag(void);
-int bignum_is_overflow(void);
+bn_extern void bignum_reset_overflow_flag(void);
+bn_extern int bignum_is_overflow(void);
 
 /*****************************************************************************
   Comparison functions
@@ -129,13 +137,13 @@ int bignum_is_overflow(void);
     Returns non-zero value if `n` is zero
     Returns zero if `n` is non-zero.
 *****************************************************************************/
-int  bignum_cmp(Bignum const* a, Bignum const* b);
-int  bignum_greater(Bignum const* a, Bignum const* b);
-int  bignum_less(Bignum const* a, Bignum const* b);
-int  bignum_geq(Bignum const* a, Bignum const* b);
-int  bignum_leq(Bignum const* a, Bignum const* b);
-int  bignum_equal(Bignum const* a, Bignum const* b);
-int  bignum_is_zero(Bignum const* n);
+bn_extern int  bignum_cmp(Bignum const* a, Bignum const* b);
+bn_extern int  bignum_greater(Bignum const* a, Bignum const* b);
+bn_extern int  bignum_less(Bignum const* a, Bignum const* b);
+bn_extern int  bignum_geq(Bignum const* a, Bignum const* b);
+bn_extern int  bignum_leq(Bignum const* a, Bignum const* b);
+bn_extern int  bignum_equal(Bignum const* a, Bignum const* b);
+bn_extern int  bignum_is_zero(Bignum const* n);
 
 
 /*****************************************************************************
@@ -168,12 +176,12 @@ int  bignum_is_zero(Bignum const* n);
     Divides the numbers `a` by `b`, stores the quotient of the division in
     `q`, and the remainder in `r`.
 *****************************************************************************/
-void bignum_incr(Bignum* n);
-void bignum_decr(Bignum* n);
-void bignum_add(Bignum* a, Bignum const* b, Bignum const* c);
-void bignum_sub(Bignum* a, Bignum const* b, Bignum const* c);
-void bignum_mul(Bignum* a, Bignum const* b, Bignum const* c);
-void bignum_divmod(Bignum* q, Bignum *r, Bignum const* a, Bignum const* b);
+bn_extern void bignum_incr(Bignum* n);
+bn_extern void bignum_decr(Bignum* n);
+bn_extern void bignum_add(Bignum* a, Bignum const* b, Bignum const* c);
+bn_extern void bignum_sub(Bignum* a, Bignum const* b, Bignum const* c);
+bn_extern void bignum_mul(Bignum* a, Bignum const* b, Bignum const* c);
+bn_extern void bignum_divmod(Bignum* q, Bignum *r, Bignum const* a, Bignum const* b);
 
 /*****************************************************************************
   END OF HEADING

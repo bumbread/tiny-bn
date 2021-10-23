@@ -1,33 +1,11 @@
 @echo off
 
-set CC=gcc -Dbn_implementation -I. -Wundef -Wall -Wextra -O3
+:: TODO(bumbread): figure out how to mitigate C5045 without disabling
+set CC=cl /TC /Z7 /I. /Wall /wd4820 /wd5045
 
 if "%1"=="test" (
-  %CC% bn.h .\tests\golden.c      -o .\build\test_golden
-  %CC% bn.h .\tests\hand_picked.c -o .\build\test_hand_picked
-  %CC% bn.h .\tests\load_cmp.c    -o .\build\test_load_cmp
-  %CC% bn.h .\tests\factorial.c   -o .\build\test_factorial
-  %CC% bn.h .\tests\randomized.c  -o .\build\test_random
-  REM %CC% bn.c .\tests\rsa.c         -o .\build\test_rsa
-
-  echo.
-  echo ======================================================================
-  .\build\test_golden
-  echo ======================================================================
-  .\build\test_hand_picked
-  echo ======================================================================
-  .\build\test_load_cmp
-  echo ======================================================================
-  py .\scripts\fact100.py
-  .\build\test_factorial
-  echo ======================================================================
-  py .\scripts\test_old_errors.py
-  echo ======================================================================
-  REM .\build\test_rsa
-  REM echo =======================================================================
-  py .\scripts\test_rand.py 1000
-  echo ======================================================================
-  echo.
+  %CC% /LD -Dbn_array_size=4 -Dbn_test -Dbn_implementation bn.h /link /out:tests\tinybignum.dll
+  py tests\tinybignum.py
 ) else (
   %CC% -Dbn_implementation -c bn.h -o build\bignum.obj
 )
