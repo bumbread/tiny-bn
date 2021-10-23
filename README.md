@@ -65,7 +65,7 @@ by defining `bn_array_size`. By default bn_array_size is defined in such a way
 as to make the precision of 1024 bits.
 
 If you change the precision, you have to have the same define in EVERY file
-that includes `bn.h`. Alternatively add `-Dbn_word_size=n` compiler option
+that includes `bn.h`. Alternatively add `-Dbn_array_size=n` compiler option
 for every compiled file.
 
 ### No-CRT builds
