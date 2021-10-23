@@ -282,7 +282,13 @@ void bignum_assign(Bignum* dst, Bignum const* src)
 uint64_t u64_from_bignum(Bignum const* n)
 {
   bn_assert(n);
-  return n->array[0] | (n->array[1] << 1);
+  uint64_t low = (uint64_t)n->array[0];
+  uint64_t high = (uint64_t)n->array[1];
+  uint64_t result = low | (high<<32);
+  for(int i = 2; i < bn_array_size; ++i) if(n->array[i] != 0) {
+    bn_overflow_flag = 1;
+  }
+  return result;
 }
 
 static inline char bn__hexlo(uint32_t b)
