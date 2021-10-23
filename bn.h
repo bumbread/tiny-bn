@@ -299,37 +299,29 @@ void hex_from_bignum(Bignum const* n, char* str, int maxsize)
   bn_assert(n);
   bn_assert(str);
   bn_assert(maxsize > 0);
-  bn_assert(maxsize%8 == 0);
 
-  int j = bn_array_size - 1;
-  int i = 0;
+  int num_digits = maxsize - 1;
+  int words_remain = 1+(num_digits-1)/8;
+  int d = num_digits;
+  int wi = 0;
 
-  while ((j >= 0) && (maxsize > (i + 1)))
-  {
-    str[i+0] = bn__hexhi(n->array[j]>>24);
-    str[i+1] = bn__hexlo(n->array[j]>>24);
-    str[i+0] = bn__hexhi(n->array[j]>>16);
-    str[i+1] = bn__hexlo(n->array[j]>>16);
-    str[i+2] = bn__hexhi(n->array[j]>>8);
-    str[i+3] = bn__hexlo(n->array[j]>>8);
-    str[i+4] = bn__hexhi(n->array[j]);
-    str[i+5] = bn__hexlo(n->array[j]);
-    i += (2 * sizeof(uint32_t));
-    j -= 1;
+  while(words_remain-- > 0) {
+    uint32_t word = n->array[wi++];
+    int digits = 8;
+    while(digits-- != 0) {
+      str[--d] = bn__hexlo(word);
+      word /= 16;
+    }
   }
 
-  j = 0;
-  while (str[j] == '0')
-  {
-    j += 1;
-  }
- 
-  for (i = 0; i < maxsize-j; ++i)
-  {
-    str[i] = str[i + j];
+  uint32_t first_word = n->array[wi++];
+  int digits_per_last_word = 1+(num_digits-1)%8;
+  while(digits_per_last_word-- != 0) {
+    str[--d] = bn__hexlo(first_word);
+    first_word /= 16;  
   }
 
-  str[i] = 0;
+  str[maxsize-1] = 0;
 }
 
 
