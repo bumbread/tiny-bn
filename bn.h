@@ -234,34 +234,59 @@ void bignum_from_hex(Bignum* n, char const* str, int maxsize)
   bn_assert(maxsize > 0);
   bignum_init(n);
 
-  // Find the length of the string and if its bigger, truncate
-  // the string
-  int len = 0;
-  while(len != maxsize) {
-    if(str[len] == 0) {
-      maxsize = len;
+  int strsize = maxsize;
+  for(int i = 0; i != maxsize; ++i) {
+    if(str[i] == 0) {
+      strsize = i;
+      maxsize = i;
       break;
     }
-    len++;
   }
 
-  int i = maxsize-1;
-
-  int word_counter = 0;
-  while(word_counter < bn_array_size) {
+  if(8*bn_array_size >= strsize) {
+    // We write the maximum number of digits that's in a string
+    // and here overflow is impossible since the string is
+    // shorter.
     uint32_t word = 0;
-    int digit_counter = 0;
-    while(digit_counter != 32 && i != 0) {
-      word |= hexchar__to_int(str[i--]) << digit_counter;
-      digit_counter += 4;
+    int dc = 0;
+    int wc = 0;
+    int i = strsize-1;
+    do {
+      word = 16*word + hexchar__to_int(str[i--]);
+      if(++dc == 8) {
+        n->array[wc++] = word;
+        dc = 0;
+        word = 0;
+      }
+    } while(i >= 0);
+    if(dc != 0) {
+      n->array[wc] = word;
     }
-    n->array[word_counter ++] = word;
-    if(i == 0) break;
   }
-
-  while(i != 0) if(str[i--] != 0) {
-    bn_overflow_flag = 1;
-    break;
+  else {
+    // We only write 8*bn_array_size digits into the number
+    // and if at least one of first digits of big endian
+    // string is non zero we set overflow flag.
+    int wc = 0;
+    int nfirstdigits = strsize - 8*bn_array_size;
+    for(int i = nfirstdigits; i != strsize;) {
+      uint32_t word = 0;
+      word = 16*word + hexchar__to_int(str[i++]);
+      word = 16*word + hexchar__to_int(str[i++]);
+      word = 16*word + hexchar__to_int(str[i++]);
+      word = 16*word + hexchar__to_int(str[i++]);
+      word = 16*word + hexchar__to_int(str[i++]);
+      word = 16*word + hexchar__to_int(str[i++]);
+      word = 16*word + hexchar__to_int(str[i++]);
+      word = 16*word + hexchar__to_int(str[i++]);
+      n->array[wc] = word;
+    }
+    for(int i = 0; i != nfirstdigits; ++i) {
+      if(str[i] != 0) {
+        bn_overflow_flag = 1;
+        break;
+      }
+    }
   }
 }
 
@@ -294,7 +319,7 @@ uint64_t u64_from_bignum(Bignum const* n)
 static inline char bn__hexlo(uint32_t b)
 {
   char q=(char)(b&0x0F);
-  if(q>=10) q+='a';
+  if(q>=10) q+=-10+'a';
   else q+='0';
   return q;
 }
