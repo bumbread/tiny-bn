@@ -4,3 +4,4 @@ error_log.txt
 *.lib
 *.exp
 *.obj
+*.rdbg

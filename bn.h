@@ -267,7 +267,7 @@ void bignum_from_hex(Bignum* n, char const* str, int maxsize)
     // We only write 8*bn_array_size digits into the number
     // and if at least one of first digits of big endian
     // string is non zero we set overflow flag.
-    int wc = 0;
+    int wc = bn_array_size;
     int nfirstdigits = strsize - 8*bn_array_size;
     for(int i = nfirstdigits; i != strsize;) {
       uint32_t word = 0;
@@ -279,7 +279,7 @@ void bignum_from_hex(Bignum* n, char const* str, int maxsize)
       word = 16*word + hexchar__to_int(str[i++]);
       word = 16*word + hexchar__to_int(str[i++]);
       word = 16*word + hexchar__to_int(str[i++]);
-      n->array[wc] = word;
+      n->array[--wc] = word;
     }
     for(int i = 0; i != nfirstdigits; ++i) {
       if(str[i] != 0) {
@@ -379,35 +379,27 @@ int bignum_is_overflow(void)
 void bignum_incr(Bignum* n)
 {
   bn_assert(n);
-  int overflow = 0;
+  int carry = 1;
   for(int i = 0; i != bn_array_size; ++i)
   {
-    n->array[i] += 1;
-    // Note(bumbread): If increment overflowed, the new
-    // value would be 0x00000000
-    if(n->array[i] == 0) {
-      overflow = 1;
-    }
-    else {
+    n->array[i] += carry;
+    if(n->array[i] != 0) {
+      carry = 0;
       break;
     }
   }
-  bn_overflow_flag |= overflow;
+  bn_overflow_flag |= carry;
 }
 
 void bignum_decr(Bignum* n)
 {
   bn_assert(n);
-  int borrow = 0;
+  int borrow = 1;
   for(int i = 0; i != bn_array_size; ++i)
   {
-    n->array[i] -= 1;
-    // Note(bumbread): If decrement overflowed, the new
-    // value would be 0xFFFFFFFF
-    if(n->array[i] == 0xFFFFFFFF) {
-      borrow = 1;
-    }
-    else {
+    n->array[i] -= borrow;
+    if(n->array[i] != 0xFFFFFFFF) {
+      borrow = 0;
       break;
     }
   }
