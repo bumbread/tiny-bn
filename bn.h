@@ -250,15 +250,15 @@ void bignum_from_hex(Bignum* n, char const* str, int maxsize)
     uint32_t word = 0;
     int dc = 0;
     int wc = 0;
-    int i = strsize-1;
+    int i = 0;
     do {
-      word = 16*word + hexchar__to_int(str[i--]);
+      word = 16*word + hexchar__to_int(str[i++]);
       if(++dc == 8) {
         n->array[wc++] = word;
         dc = 0;
         word = 0;
       }
-    } while(i >= 0);
+    } while(i < strsize);
     if(dc != 0) {
       n->array[wc] = word;
     }
@@ -422,7 +422,7 @@ void bignum_add(Bignum* res, Bignum const* lhs, Bignum const* rhs)
     carry = tmp >> 32;
   }
 
-  bn_overflow_flag = (carry!=0);
+  bn_overflow_flag |= (carry!=0);
 }
 
 
@@ -439,7 +439,7 @@ void bignum_sub(Bignum* res, Bignum const* lhs, Bignum const* rhs)
     res->array[i] = lhs->array[i] - rhs->array[i] - old_borrow;
   }
 
-  bn_overflow_flag = (borrow!=0);
+  bn_overflow_flag |= (borrow!=0);
 }
 
 
@@ -464,7 +464,7 @@ void bignum_mul(Bignum* res, Bignum const* lhs, Bignum const* rhs)
     {
       uint64_t ld = (uint64_t)lhs->array[j];
       uint64_t rd = (uint64_t)rhs->array[i];
-      uint64_t tmp = carry + ld + rd;
+      uint64_t tmp = carry + ld * rd;
       row.array[i+j] += (uint32_t)(tmp & 0xFFFFFFFF);
       carry = tmp >> 32;
     }
@@ -476,10 +476,10 @@ void bignum_mul(Bignum* res, Bignum const* lhs, Bignum const* rhs)
   bignum_assign(res, &sum);
 }
 
-static uint64_t
+static int
 bignum__get_ndigits(Bignum const *b)
 {
-  uint64_t ndigits = bn_array_size;
+  int ndigits = bn_array_size;
   do {
     if(b->array[ndigits-1] != 0) {
       break;
@@ -496,8 +496,8 @@ bignum_divmod__getdigit(Bignum *r, Bignum const *lhs, Bignum const *rhs)
   bn_assert(lhs);
   bn_assert(rhs);
 
-  uint64_t ldigits = bignum__get_ndigits(lhs);
-  uint64_t rdigits = bignum__get_ndigits(rhs);
+  int ldigits = bignum__get_ndigits(lhs);
+  int rdigits = bignum__get_ndigits(rhs);
 
   if(ldigits == 1 && rdigits == 1) {
     uint32_t left = lhs->array[0];
@@ -514,12 +514,12 @@ bignum_divmod__getdigit(Bignum *r, Bignum const *lhs, Bignum const *rhs)
     bignum_assign(&divident, lhs);
 
     uint32_t quotient = 0;
-    while(bignum_cmp(&divident, rhs) > 0) {
+    while(bignum_cmp(&divident, rhs) >= 0) {
       bignum_sub(&divident, &divident, rhs);
       quotient += 1;
     }
 
-    bignum_assign(&divident, r);
+    bignum_assign(r, &divident);
     return quotient;
   }
 }
@@ -552,8 +552,11 @@ bignum_divmod(Bignum* quot, Bignum *rem, Bignum const* lhs, Bignum const* rhs)
     // Note(bumbread/2021-10-21): this may be wrong, when the pointers
     // are aliased. Assignment to rem from lhs may overwrite rhs,
     // leaving the rest of procedure wrong.
+    // Note(bumbread/2021-10-25): the comment above may be wrong,
+    // too lazy to support it.
     bignum_assign(rem, lhs);
-    bignum_assign(quot, rhs);
+    //bignum_sub(rem, rhs, lhs);
+    bignum_from_u64(quot, 0);
     return;
   }
 
@@ -561,25 +564,28 @@ bignum_divmod(Bignum* quot, Bignum *rem, Bignum const* lhs, Bignum const* rhs)
   Bignum quotient = {0};
   Bignum remainder = {0};
 
-  uint64_t ldigits = bignum__get_ndigits(lhs);
-  uint64_t rdigits = bignum__get_ndigits(rhs);
+  int ldigits = bignum__get_ndigits(lhs);
+  int rdigits = bignum__get_ndigits(rhs);
   
   {
     // Initialise remainder to be `rdigits-1` digits of the
     // lhs number.
-    uint64_t i = rdigits - 1;
+    int i = rdigits - 1;
     if(i != 0) do {
       i --;
       remainder.array[i] = lhs->array[i+1];
     } while(i != 0);
   }
 
-  uint64_t di = ldigits-1;
-  for(uint64_t i = 0; i <= rdigits-ldigits; ++i) {
+  int di = ldigits-rdigits;
+  for(int i = 0; i <= ldigits-rdigits; ++i) {
     bignum__append_digit(&divident, &remainder, lhs->array[di--]);
     uint32_t digit = bignum_divmod__getdigit(&remainder, &divident, rhs);
     bignum__append_digit(&quotient, &quotient, digit);
   }
+
+  bignum_assign(quot, &quotient);
+  bignum_assign(rem, &remainder);
 }
 
 int bignum_cmp(Bignum const* a, Bignum const* b)
